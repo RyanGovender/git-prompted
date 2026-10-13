@@ -425,3 +425,20 @@ func TestOnboardingKeepsProjectTopics(t *testing.T) {
 		t.Fatalf("want project topics and onboarding: %s", start)
 	}
 }
+
+// Onboarding is offered once; ignoring it must not nag every later session.
+func TestOnboardingIsOfferedOnce(t *testing.T) {
+	setupEmpty(t)
+	if out := hook(t, "claude", "session-start", `{"session_id":"n1","source":"startup"}`); !strings.Contains(out, "no learning topics are set up yet") {
+		t.Fatalf("first session should onboard: %s", out)
+	}
+	if out := hook(t, "claude", "session-start", `{"session_id":"n2","source":"startup"}`); out != "" {
+		t.Fatalf("second session must not onboard again: %s", out)
+	}
+	proj := t.TempDir()
+	os.WriteFile(filepath.Join(proj, ".git-prompted.json"), []byte(`{"topics":[{"id":"hexagonal","name":"Ports and adapters","paths":["internal/adapters/**"]}]}`), 0o644)
+	out := hook(t, "claude", "session-start", `{"session_id":"n3","cwd":"`+proj+`","source":"startup"}`)
+	if !strings.Contains(out, "Ports and adapters") || strings.Contains(out, "no learning topics are set up yet") {
+		t.Fatalf("project topics keep their text without a repeat onboarding: %s", out)
+	}
+}

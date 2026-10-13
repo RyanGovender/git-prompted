@@ -127,7 +127,9 @@ func runHook(args []string, in io.Reader, out io.Writer) (code int) {
 			warn("hook error ignored: " + err.Error())
 			return 0
 		}
-		resp = ad.Context(text)
+		if text != "" {
+			resp = ad.Context(text)
+		}
 		return 0
 	}
 	if cfg == nil {

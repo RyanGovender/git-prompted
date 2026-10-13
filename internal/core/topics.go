@@ -58,6 +58,9 @@ func ParseTopicsJSON(raw []byte) ([]*Topic, error) {
 	if err != nil {
 		return nil, fmt.Errorf("invalid topic JSON: %v", err)
 	}
+	if dec.More() {
+		return nil, fmt.Errorf("invalid topic JSON: trailing data after the first value; pass an array for several topics")
+	}
 	if len(topics) == 0 {
 		return nil, fmt.Errorf("no topics in input")
 	}
@@ -287,8 +290,8 @@ func CatalogTopics(catalog []*Topic, ids []string) ([]*Topic, error) {
 }
 
 // NeedsOnboarding reports whether a session start should run topic onboarding: a
-// fresh session and no personal goals.json yet. Declining writes an empty goals.json,
-// so the user is asked once.
+// fresh session and no personal goals.json yet. Declining writes an empty goals.json;
+// Engine.OnboardingStart also offers it only once, so ignoring it never nags.
 func NeedsOnboarding(source string) bool {
 	if source != "" && source != "startup" && source != "clear" {
 		return false

@@ -74,23 +74,38 @@ func (e *Engine) SessionStart(ev Event) (string, error) {
 	return out, err
 }
 
-// OnboardingStart is SessionStart for a user without a goals.json: it asks the agent
-// to run topic onboarding. Cfg may be nil, or hold project-only topics whose usual
-// session text is kept.
+// OnboardingStart is SessionStart for a user without a goals.json: the first time,
+// it asks the agent to run topic onboarding; after that, /git-prompted:learn init
+// brings it back. Cfg may be nil, or hold project-only topics whose usual session
+// text is kept. Returns "" when there is nothing to say.
 func (e *Engine) OnboardingStart(ev Event) (string, error) {
+	var offer bool
+	err := WithState(func(s *State) error {
+		offer = s.OnboardingOffered == 0
+		if offer {
+			s.OnboardingOffered = e.now()
+		}
+		return nil
+	})
+	if err != nil {
+		return "", err
+	}
+	var base string
+	if e.Cfg != nil {
+		if base, err = e.SessionStart(ev); err != nil {
+			return "", err
+		}
+	}
+	if !offer {
+		return base, nil
+	}
 	cli := e.cli(ev.SessionID)
 	text := fmt.Sprintf("[git-prompted] Installed, but no learning topics are set up yet. Before handling the user's first request, run onboarding: "+
 		"ask which topics they want to practise %s, following the \"Onboarding\" section of the git-prompted coaching guide. "+
 		"Catalog: `%s topics list --json`. Save picks: `%s topics add <id>...`; custom topics: `%s topics add --json -` (topic JSON on stdin). "+
 		"If they say not now: `%s init --empty`. Then continue with their request.", askHint(ev.Agent), cli, cli, cli, cli)
-	if e.Cfg != nil {
-		base, err := e.SessionStart(ev)
-		if err != nil {
-			return "", err
-		}
-		if base != "" {
-			return base + "\n" + text, nil // base already carries the guide for Codex
-		}
+	if base != "" {
+		return base + "\n" + text, nil // base already carries the guide for Codex
 	}
 	if ev.Agent == "codex" && e.Coaching != "" {
 		text += "\n\nCoaching guide:\n\n" + e.Coaching

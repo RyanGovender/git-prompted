@@ -279,3 +279,50 @@ func TestNeedsOnboarding(t *testing.T) {
 		t.Fatal("an existing goals.json (even empty) means onboarding is done or declined")
 	}
 }
+
+func TestParseTopicsJSONRejectsTrailingData(t *testing.T) {
+	for _, in := range []string{
+		`{"id":"a","patterns":["x"]}` + "\n" + `{"id":"b","patterns":["y"]}`,
+		`{"id":"c","patterns":["q"]} garbage`,
+	} {
+		if _, err := ParseTopicsJSON([]byte(in)); err == nil || !strings.Contains(err.Error(), "trailing data") {
+			t.Errorf("%q: got %v, want trailing data error", in, err)
+		}
+	}
+}
+
+// Code and comments that look like a topic but are not must stay quiet.
+func TestCatalogIgnoresLookalikes(t *testing.T) {
+	tempHome(t)
+	if _, _, err := AddTopics(catalog(t)); err != nil {
+		t.Fatal(err)
+	}
+	cfg := LoadConfig(t.TempDir(), func(string) {})
+	misses := map[string][]string{
+		"sql": {
+			"select {\ncase v := <-ch:\n\t// read the value from the producer\n}",
+			"// Select the first item from the list",
+		},
+		"error-handling": {"// all fields except id are copied", "# This will raise ValueError later"},
+		"performance":    {"const cache = new Map()", "// TODO: cache this"},
+	}
+	for id, snippets := range misses {
+		for _, code := range snippets {
+			if cfg.Topic(id).Matches([]string{"x.go"}, code) {
+				t.Errorf("%s fires on lookalike %q", id, code)
+			}
+		}
+	}
+	hits := map[string][]string{
+		"sql":            {`db.Query("select id from users where org = $1", org)`, "SELECT name\nFROM accounts"},
+		"error-handling": {"    except ValueError:", "    raise NotFound(id)"},
+		"performance":    {"@lru_cache(maxsize=128)", "cache := lru.New(128) // groupcache"},
+	}
+	for id, snippets := range hits {
+		for _, code := range snippets {
+			if !cfg.Topic(id).Matches([]string{"x.go"}, code) {
+				t.Errorf("%s should match %q", id, code)
+			}
+		}
+	}
+}

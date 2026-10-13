@@ -53,8 +53,8 @@
       "fmt\\.Errorf\\(.*%w",
       "\\bpanic\\(",
       "\\brecover\\(\\)",
-      "\\bexcept\\s+\\w+",
-      "\\braise\\s+\\w+",
+      "^\\s*except\\b",
+      "^\\s*raise\\s+\\w",
       "\\bcatch\\s*\\("
     ],
     "concepts": ["error-wrapping", "sentinel-errors", "error-types", "errors-is-as", "panic-vs-error", "error-context", "fail-fast", "partial-failure"]
@@ -70,11 +70,12 @@
       "Write migrations that are safe to run on a live database"
     ],
     "patterns": [
-      "(?i)\\bselect\\b[\\s\\S]+?\\bfrom\\b",
-      "(?i)\\binsert\\s+into\\b",
-      "(?i)\\bupdate\\s+\\w+\\s+set\\b",
-      "(?i)\\bdelete\\s+from\\b",
-      "(?i)\\b(create|alter|drop)\\s+(table|index)\\b",
+      "\\bSELECT\\b[^\\n]*\\n?[^\\n]*\\bFROM\\b",
+      "\\bINSERT\\s+INTO\\b",
+      "\\bUPDATE\\s+\\w+\\s+SET\\b",
+      "\\bDELETE\\s+FROM\\b",
+      "\\b(CREATE|ALTER|DROP)\\s+(TABLE|INDEX)\\b",
+      "(?i)[\"'\\x60]\\s*(select\\s[^\\n]*?\\bfrom|insert\\s+into|delete\\s+from|update\\s+\\w+\\s+set)\\b",
       "\\.(Query|QueryRow|Exec)(Context)?\\(",
       "\\.BeginTx?\\(",
       "database/sql"
@@ -138,7 +139,7 @@
       "\\bsync\\.Pool\\b",
       "\\bpprof\\b",
       "\\bmake\\(\\[\\][^,()]+,\\s*0\\s*,",
-      "(?i)\\b(lru_?)?cache\\b",
+      "\\blru_cache\\b|functools\\.cache\\b|@cache\\b|\\bLRUCache\\b|\\bgroupcache\\b|\\bristretto\\b",
       "\\buse(Memo|Callback)\\(|\\bReact\\.memo\\("
     ],
     "concepts": ["measure-first", "allocation", "algorithmic-complexity", "caching", "batching", "profiling", "memoization", "hot-path"]
