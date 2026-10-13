@@ -12,7 +12,8 @@ Map the arguments:
 - `mute <topic>` -> `decide --topic <topic> --choice mute`
 - `unmute <topic>` -> `unmute --topic <topic>`
 - `stats` -> `stats`; show the output as-is, then in one or two sentences point out the weakest spot and suggest `/git-prompted:quiz` on it.
-- `status`, `progress`, `init` -> same name. For `progress`, also show the user the contents of the file it prints.
+- `init` -> run topic onboarding: follow the "Onboarding" section of the git-prompted coaching skill, using the CLI above for every command.
+- `status`, `progress` -> same name. For `progress`, also show the user the contents of the file it prints.
 - no arguments -> `status`
 
 Arguments: $ARGUMENTS

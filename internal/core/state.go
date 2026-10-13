@@ -26,6 +26,8 @@ type State struct {
 	Cooldowns      map[string]float64  `json:"cooldowns"`
 	Muted          []string            `json:"muted"`
 	CurrentSession string              `json:"current_session,omitempty"`
+	// OnboardingOffered is when topic onboarding was first offered (0 = never).
+	OnboardingOffered float64 `json:"onboarding_offered,omitempty"`
 }
 
 // Session returns (creating if needed) the session and marks it current.

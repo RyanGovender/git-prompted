@@ -3,24 +3,30 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 
-	"github.com/ryangovender/git-prompted/assets"
 	"github.com/ryangovender/git-prompted/internal/core"
 )
 
-func setup(t *testing.T) string {
+// setupEmpty is a fresh home with no goals.json (a brand-new user).
+func setupEmpty(t *testing.T) string {
 	t.Helper()
 	home := t.TempDir()
 	t.Setenv("GIT_PROMPTED_HOME", home)
 	t.Setenv("CLAUDE_PROJECT_DIR", "")
 	t.Setenv("GEMINI_PROJECT_DIR", "")
-	if err := os.WriteFile(filepath.Join(home, "goals.json"), assets.GoalsExample, 0o644); err != nil {
-		t.Fatal(err)
-	}
+	return home
+}
+
+// setup is a home with the default topics (concurrency + architecture).
+func setup(t *testing.T) string {
+	t.Helper()
+	home := setupEmpty(t)
+	cmd(t, "init", "--defaults")
 	return home
 }
 
@@ -292,5 +298,147 @@ func TestBlockedEditDoesNotQueueQuiz(t *testing.T) {
 	}
 	if out := hook(t, "claude", "after-turn", `{"session_id":"q1","cwd":"/p"}`); !strings.Contains(out, "Architecture") {
 		t.Fatalf("expected architecture quiz once the edit went through: %s", out)
+	}
+}
+
+func TestInitVariants(t *testing.T) {
+	home := setupEmpty(t)
+	goals := filepath.Join(home, "goals.json")
+	cmd(t, "init")
+	if _, err := os.Stat(goals); err == nil {
+		t.Fatal("plain init must not write topics the user did not pick")
+	}
+	var out bytes.Buffer
+	if err := status(&out, "/p", ""); err != nil || !strings.Contains(out.String(), "topics add") {
+		t.Fatalf("status should explain how to pick topics: %v\n%s", err, out.String())
+	}
+	if err := runCommand([]string{"init", "--defaults", "--empty"}); err == nil {
+		t.Fatal("--defaults with --empty must be rejected")
+	}
+	cmd(t, "init", "--empty")
+	raw, _ := os.ReadFile(goals)
+	if !strings.Contains(string(raw), `"topics": []`) {
+		t.Fatalf("init --empty: %s", raw)
+	}
+	cmd(t, "init", "--defaults") // config exists: must not overwrite
+	if again, _ := os.ReadFile(goals); string(again) != string(raw) {
+		t.Fatalf("init overwrote an existing config: %s", again)
+	}
+}
+
+func TestTopicsCommand(t *testing.T) {
+	home := setupEmpty(t)
+	var out bytes.Buffer
+	if err := runTopics(&out, nil, []string{"add", "sql", "error-handling"}, false); err != nil {
+		t.Fatal(err)
+	}
+	custom := `{"id":"react-hooks","name":"React hooks","patterns":["\\buse(State|Effect)\\("]}`
+	if err := runTopics(&out, strings.NewReader(custom), []string{"add", "-"}, true); err != nil {
+		t.Fatal(err)
+	}
+	if err := runTopics(&out, strings.NewReader(`{oops`), []string{"add", "-"}, true); err == nil || !strings.Contains(err.Error(), "invalid topic JSON") {
+		t.Fatalf("bad JSON: %v", err)
+	}
+	if err := runTopics(&out, nil, []string{"add", "nope"}, false); err == nil || !strings.Contains(err.Error(), "choose from") {
+		t.Fatalf("unknown id: %v", err)
+	}
+	out.Reset()
+	if err := runTopics(&out, nil, []string{"list"}, true); err != nil {
+		t.Fatal(err)
+	}
+	var list []core.TopicListing
+	if err := json.Unmarshal(out.Bytes(), &list); err != nil {
+		t.Fatalf("list --json: %v\n%s", err, out.String())
+	}
+	sel := map[string]string{}
+	for _, l := range list {
+		if l.Selected {
+			sel[l.ID] = l.Source
+		}
+	}
+	if sel["sql"] != "catalog" || sel["error-handling"] != "catalog" || sel["react-hooks"] != "custom" || len(sel) != 3 {
+		t.Fatalf("selected: %v", sel)
+	}
+
+	// The form prompts print: --session first, `-` as the stdin marker, no known session needed.
+	stdin = strings.NewReader(`{"id":"go-generics","patterns":["\\[\\w+ (any|comparable)\\]"]}`)
+	defer func() { stdin = os.Stdin }()
+	cmd(t, "--session", "unknown-session", "topics", "add", "--json", "-")
+
+	cmd(t, "topics", "remove", "sql")
+	raw, _ := os.ReadFile(filepath.Join(home, "goals.json"))
+	if strings.Contains(string(raw), `"id": "sql"`) || !strings.Contains(string(raw), `"id": "go-generics"`) {
+		t.Fatalf("goals.json after add/remove:\n%s", raw)
+	}
+
+	edit := `{"session_id":"t1","cwd":"/p","tool_name":"Write","tool_input":{"file_path":"/p/%s","content":"return fmt.Errorf(\"load: %%w\", err)"}}`
+	if out := hook(t, "claude", "before-edit", fmt.Sprintf(edit, "w.go")); !strings.Contains(out, "Learning checkpoint: Error handling") {
+		t.Fatalf("picked topic should fire on code: %s", out)
+	}
+	cmd(t, "decide", "--session", "t1", "--topic", "error-handling", "--choice", "skip")
+	cmd(t, "topics", "add", "concurrency")
+	prose := `{"session_id":"t2","cwd":"/p","tool_name":"Write","tool_input":{"file_path":"/p/spec.md","content":"go func() { ch <- 1 }()"}}`
+	if out := hook(t, "claude", "before-edit", prose); out != "" {
+		t.Fatalf("prose edit fired: %s", out)
+	}
+}
+
+func TestOnboardingWhenNoConfig(t *testing.T) {
+	for _, agent := range []string{"claude", "codex", "gemini"} {
+		t.Run(agent, func(t *testing.T) {
+			setupEmpty(t)
+			start := hook(t, agent, "session-start", `{"session_id":"o1","source":"startup"}`)
+			for _, want := range []string{"no learning topics are set up yet", "topics list --json", "topics add --json -", "init --empty"} {
+				if !strings.Contains(start, want) {
+					t.Fatalf("missing %q in: %s", want, start)
+				}
+			}
+			if agent == "codex" && !strings.Contains(start, "## Onboarding") {
+				t.Fatal("codex should get the coaching guide inlined")
+			}
+			if out := hook(t, agent, "session-start", `{"session_id":"o1","source":"resume"}`); out != "" && out != "{}" {
+				t.Fatalf("resume must not onboard: %s", out)
+			}
+		})
+	}
+}
+
+func TestDecliningOrRemovingAllTopicsStaysQuiet(t *testing.T) {
+	setupEmpty(t)
+	cmd(t, "init", "--empty")
+	if out := hook(t, "claude", "session-start", `{"session_id":"o2","source":"startup"}`); out != "" {
+		t.Fatalf("declined onboarding must stay quiet: %s", out)
+	}
+	cmd(t, "topics", "add", "sql")
+	cmd(t, "topics", "remove", "sql")
+	if out := hook(t, "claude", "session-start", `{"session_id":"o3","source":"startup"}`); out != "" {
+		t.Fatalf("no topics left must stay quiet: %s", out)
+	}
+}
+
+func TestOnboardingKeepsProjectTopics(t *testing.T) {
+	setupEmpty(t)
+	proj := t.TempDir()
+	os.WriteFile(filepath.Join(proj, ".git-prompted.json"), []byte(`{"topics":[{"id":"hexagonal","name":"Ports and adapters","paths":["internal/adapters/**"]}]}`), 0o644)
+	start := hook(t, "claude", "session-start", `{"session_id":"o4","cwd":"`+proj+`","source":"startup"}`)
+	if !strings.Contains(start, "Ports and adapters") || !strings.Contains(start, "no learning topics are set up yet") {
+		t.Fatalf("want project topics and onboarding: %s", start)
+	}
+}
+
+// Onboarding is offered once; ignoring it must not nag every later session.
+func TestOnboardingIsOfferedOnce(t *testing.T) {
+	setupEmpty(t)
+	if out := hook(t, "claude", "session-start", `{"session_id":"n1","source":"startup"}`); !strings.Contains(out, "no learning topics are set up yet") {
+		t.Fatalf("first session should onboard: %s", out)
+	}
+	if out := hook(t, "claude", "session-start", `{"session_id":"n2","source":"startup"}`); out != "" {
+		t.Fatalf("second session must not onboard again: %s", out)
+	}
+	proj := t.TempDir()
+	os.WriteFile(filepath.Join(proj, ".git-prompted.json"), []byte(`{"topics":[{"id":"hexagonal","name":"Ports and adapters","paths":["internal/adapters/**"]}]}`), 0o644)
+	out := hook(t, "claude", "session-start", `{"session_id":"n3","cwd":"`+proj+`","source":"startup"}`)
+	if !strings.Contains(out, "Ports and adapters") || strings.Contains(out, "no learning topics are set up yet") {
+		t.Fatalf("project topics keep their text without a repeat onboarding: %s", out)
 	}
 }

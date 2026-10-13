@@ -18,7 +18,7 @@ chmod +x bin/git-prompted integrations/claude/bin/git-prompted
 
 {
   printf '%s\n' '---' 'name: coaching'
-  printf '%s\n' 'description: How to run a git prompted learning checkpoint or quiz, including grading with concept tags. Use this whenever a [git-prompted] hook message appears (a blocked edit marked "Learning checkpoint" or a stop message offering a quiz), whenever the user runs /git-prompted:quiz, or whenever the user says they want to think something through themselves, be tested, or practise a topic instead of having the code written for them.'
+  printf '%s\n' 'description: How to run git prompted onboarding, learning checkpoints and quizzes, including grading with concept tags. Use this whenever a [git-prompted] hook message appears (a blocked edit marked "Learning checkpoint", a stop message offering a quiz, or a request to run onboarding and pick topics), whenever the user runs /git-prompted:quiz or /git-prompted:learn init, or whenever the user says they want to think something through themselves, be tested, or practise a topic instead of having the code written for them.'
   printf '%s\n\n' '---'
   printf '%s\n' '<!-- Generated from assets/coaching.md by scripts/sync.sh. Edit that file instead. -->'
   cat assets/coaching.md

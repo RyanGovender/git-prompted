@@ -27,7 +27,10 @@ Hooks (called by the agent CLI, JSON on stdin):
   git-prompted hook <claude|codex|gemini> <session-start|before-edit|after-turn>
 
 Commands:
-  git-prompted init                         create ~/.git-prompted/goals.json from the example
+  git-prompted init [--defaults|--empty]    how to pick topics (--defaults: concurrency + architecture; --empty: none)
+  git-prompted topics list [--json]         built-in topic catalog; * = in your goals.json
+  git-prompted topics add <id>...           add catalog topics (add --json - reads custom topic JSON from stdin)
+  git-prompted topics remove <id>...
   git-prompted status                       topics, cooldowns, mutes
   git-prompted progress                     write and print the path of progress.md
   git-prompted session on|off               checkpoints for the current session
@@ -116,6 +119,19 @@ func runHook(args []string, in io.Reader, out io.Writer) (code int) {
 		return 0
 	}
 	cfg := core.LoadConfig(ev.ProjectDir, warn)
+	if h == adapter.SessionStart && core.NeedsOnboarding(ev.Source) {
+		// No goals.json yet: instead of staying inert, ask the agent to let the user pick topics.
+		eng := &core.Engine{Cfg: cfg, Exe: stablePath(), Coaching: assets.Coaching}
+		text, err := eng.OnboardingStart(ev)
+		if err != nil {
+			warn("hook error ignored: " + err.Error())
+			return 0
+		}
+		if text != "" {
+			resp = ad.Context(text)
+		}
+		return 0
+	}
 	if cfg == nil {
 		return 0
 	}
@@ -148,7 +164,7 @@ func runHook(args []string, in io.Reader, out io.Writer) (code int) {
 func splitArgs(args []string) (pos, flags []string) {
 	for i := 0; i < len(args); i++ {
 		a := args[i]
-		if strings.HasPrefix(a, "-") {
+		if strings.HasPrefix(a, "-") && a != "-" {
 			flags = append(flags, a)
 			if !strings.Contains(a, "=") && i+1 < len(args) && !strings.HasPrefix(args[i+1], "-") {
 				flags = append(flags, args[i+1])
@@ -186,6 +202,8 @@ func runCommand(args []string) error {
 	asJSON := fs.Bool("json", false, "machine-readable output")
 	plain := fs.Bool("plain", false, "no emoji")
 	with := fs.String("with", "", "status line command to combine with")
+	defaults := fs.Bool("defaults", false, "init: start with the default topics")
+	empty := fs.Bool("empty", false, "init: start with no topics")
 	if err := fs.Parse(flagArgs); err != nil {
 		return err
 	}
@@ -208,14 +226,38 @@ func runCommand(args []string) error {
 			fmt.Println("Config already exists:", path)
 			return nil
 		}
-		if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		catalog, err := core.ParseCatalog(assets.Topics)
+		if err != nil {
 			return err
 		}
-		if err := os.WriteFile(path, assets.GoalsExample, 0o644); err != nil {
-			return err
+		switch {
+		case *defaults && *empty:
+			return fmt.Errorf("use --defaults or --empty, not both")
+		case *defaults:
+			picked, err := core.CatalogTopics(catalog, core.DefaultTopicIDs)
+			if err != nil {
+				return err
+			}
+			if _, _, err := core.AddTopics(picked); err != nil {
+				return err
+			}
+			fmt.Printf("Created %s with %s.\n", path, strings.Join(core.DefaultTopicIDs, ", "))
+		case *empty:
+			if _, _, err := core.AddTopics(nil); err != nil {
+				return err
+			}
+			fmt.Printf("Created %s with no topics. Pick some any time: /git-prompted:learn init, or git-prompted topics add <id>...\n", path)
+		default:
+			fmt.Println("Pick the topics you want to practise. In your agent, run /git-prompted:learn init; or from here:")
+			fmt.Println()
+			for _, t := range catalog {
+				fmt.Printf("  %-16s %s\n", t.ID, t.DisplayName())
+			}
+			fmt.Println("\n  git-prompted topics add <id>...    e.g. git-prompted topics add concurrency error-handling")
 		}
-		fmt.Printf("Created %s. Edit topics, patterns and goals to taste.\n", path)
 		return nil
+	case "topics":
+		return runTopics(os.Stdout, stdin, pos, *asJSON)
 	case "status":
 		return status(os.Stdout, cwd, *session)
 	case "progress":
@@ -335,7 +377,7 @@ func status(w io.Writer, cwd, session string) error {
 	}
 	cfg := core.LoadConfig(cwd, warn)
 	if cfg == nil {
-		fmt.Fprintf(w, "No topics configured. Run: git-prompted init (then edit %s)\n", core.UserConfigPath())
+		fmt.Fprintln(w, "No topics configured. Pick some: /git-prompted:learn init in your agent, or git-prompted topics add <id>... (see git-prompted topics list)")
 		return nil
 	}
 	now := float64(time.Now().Unix())
