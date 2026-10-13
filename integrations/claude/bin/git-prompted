@@ -5,16 +5,36 @@
 # It also keeps ~/.git-prompted/bin/git-prompted pointing at the current binary, so
 # configs that store a path survive upgrades. Put that dir on PATH to get `git prompted`.
 # Generated copies live in integrations/*; edit this file and run scripts/sync.sh.
-VERSION="0.3.2"
+VERSION="0.3.3"
 REPO="${GIT_PROMPTED_REPO:-ryangovender/git-prompted}"
 
 ARG1="${1:-}"; ARG2="${2:-}"
 home_dir="${GIT_PROMPTED_HOME:-$HOME/.git-prompted}"
 
+# vgt A B: true if dotted version A is newer than B.
+vgt() {
+  a="$1"; b="$2"
+  while [ -n "$a$b" ]; do
+    x="${a%%.*}"; y="${b%%.*}"
+    [ "${x:-0}" -gt "${y:-0}" ] 2>/dev/null && return 0
+    [ "${x:-0}" -lt "${y:-0}" ] 2>/dev/null && return 1
+    case "$a" in *.*) a="${a#*.}" ;; *) a="" ;; esac
+    case "$b" in *.*) b="${b#*.}" ;; *) b="" ;; esac
+  done
+  return 1
+}
 run() {
   target="$1"; shift
   link="$home_dir/bin/git-prompted"
-  if [ "$(readlink "$link" 2>/dev/null)" != "$target" ]; then
+  cur=$(readlink "$link" 2>/dev/null)
+  # Only move the link forward: an older launcher still on PATH (a session started
+  # before an upgrade) must not point it back from a newer cached release.
+  keep=""
+  case "$cur" in "$home_dir/bin/"*/*)
+    v="${cur#"$home_dir/bin/"}"; v="${v%%/*}"
+    [ -x "$cur" ] && vgt "$v" "$VERSION" && keep=1 ;;
+  esac
+  if [ "$cur" != "$target" ] && [ -z "$keep" ]; then
     mkdir -p "$home_dir/bin" 2>/dev/null && ln -sf "$target" "$link.$$" 2>/dev/null && mv -f "$link.$$" "$link" 2>/dev/null
   fi
   exec "$target" "$@"
