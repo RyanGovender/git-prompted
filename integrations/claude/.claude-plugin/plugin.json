@@ -1,6 +1,6 @@
 {
   "name": "git-prompted",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "The AI prompts you back: when Claude is about to write code in a topic you want to get better at, it offers to let you think first or quizzes you afterwards, and tracks your weak spots. No extra AI bill.",
   "author": {
     "name": "YOUR_NAME"
