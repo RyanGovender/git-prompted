@@ -85,12 +85,13 @@ func (e *Engine) BeforeEdit(ev Event) (string, error) {
 		}
 		now, cooldown := e.now(), e.Cfg.Cooldown().Seconds()
 		var checkpoint *Topic
+		var quizzes []string
 		for _, t := range e.Cfg.Topics {
 			if s.IsMuted(t.ID) || now-s.Cooldowns[t.ID] < cooldown || !t.Matches(ev.Files, ev.Code) {
 				continue
 			}
 			if t.QuizAfter() {
-				sess.AddPending(t.ID)
+				quizzes = append(quizzes, t.ID)
 				continue
 			}
 			if checkpoint == nil && sess.Checkpoints < e.Cfg.MaxPerSession() {
@@ -98,8 +99,13 @@ func (e *Engine) BeforeEdit(ev Event) (string, error) {
 			}
 		}
 		if checkpoint != nil {
+			// The edit is blocked, so nothing is written yet; quizzes queue when it is retried.
 			sess.Checkpoints++
 			reason = e.checkpointPrompt(checkpoint, ev)
+			return nil
+		}
+		for _, id := range quizzes {
+			sess.AddPending(id)
 		}
 		return nil
 	})

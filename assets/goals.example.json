@@ -38,7 +38,6 @@
       ],
       "patterns": [
         "type \\w+ interface\\s*\\{",
-        "^package \\w+",
         "class \\w+\\(ABC\\)",
         "export interface \\w+"
       ],
