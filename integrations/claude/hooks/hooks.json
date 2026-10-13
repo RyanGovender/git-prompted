@@ -1,0 +1,17 @@
+{
+  "description": "git-prompted learning checkpoints",
+  "hooks": {
+    "SessionStart": [
+      { "hooks": [ { "type": "command", "command": "\"${CLAUDE_PLUGIN_ROOT}/bin/git-prompted\" hook claude session-start", "timeout": 30 } ] }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Edit|Write|MultiEdit",
+        "hooks": [ { "type": "command", "command": "\"${CLAUDE_PLUGIN_ROOT}/bin/git-prompted\" hook claude before-edit", "timeout": 30 } ]
+      }
+    ],
+    "Stop": [
+      { "hooks": [ { "type": "command", "command": "\"${CLAUDE_PLUGIN_ROOT}/bin/git-prompted\" hook claude after-turn", "timeout": 30 } ] }
+    ]
+  }
+}

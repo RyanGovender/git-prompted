@@ -1,0 +1,69 @@
+#!/bin/sh
+# git prompted launcher. Finds the git-prompted binary for this platform, downloading
+# and checksum-verifying it from GitHub Releases on first use, then execs it.
+# If that fails during a hook it exits 0 with a no-op, so the agent never breaks.
+# It also keeps ~/.git-prompted/bin/git-prompted pointing at the current binary, so
+# configs that store a path survive upgrades. Put that dir on PATH to get `git prompted`.
+# Generated copies live in integrations/*; edit this file and run scripts/sync.sh.
+VERSION="0.3.0"
+REPO="${GIT_PROMPTED_REPO:-YOUR_GITHUB_USER/git-prompted}"
+
+ARG1="${1:-}"; ARG2="${2:-}"
+home_dir="${GIT_PROMPTED_HOME:-$HOME/.git-prompted}"
+
+run() {
+  target="$1"; shift
+  link="$home_dir/bin/git-prompted"
+  if [ "$(readlink "$link" 2>/dev/null)" != "$target" ]; then
+    mkdir -p "$home_dir/bin" 2>/dev/null && ln -sf "$target" "$link.$$" 2>/dev/null && mv -f "$link.$$" "$link" 2>/dev/null
+  fi
+  exec "$target" "$@"
+}
+noop() {
+  echo "git-prompted: $1" >&2
+  if [ "$ARG1" = "hook" ]; then
+    [ "$ARG2" = "gemini" ] && echo '{}'
+    exit 0
+  fi
+  exit 1
+}
+
+# Explicit override, e.g. a binary from `go install`.
+if [ -n "${GIT_PROMPTED_BIN:-}" ]; then run "$GIT_PROMPTED_BIN" "$@"; fi
+
+os=$(uname -s | tr '[:upper:]' '[:lower:]')
+arch=$(uname -m)
+ext=""
+case "$arch" in x86_64|amd64) arch=amd64 ;; arm64|aarch64) arch=arm64 ;; esac
+case "$os" in mingw*|msys*|cygwin*) os=windows; ext=".exe" ;; esac
+name="git-prompted-$os-$arch$ext"
+
+here=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+# Local builds (make build) take precedence, for development.
+for c in "$here/../dist/$name" "$here/../dist/git-prompted" "$here/../../../dist/$name" "$here/../../../dist/git-prompted"; do
+  [ -f "$c" ] && [ -x "$c" ] && run "$c" "$@"
+done
+
+cache="$home_dir/bin/$VERSION"
+bin="$cache/$name"
+if [ ! -x "$bin" ]; then
+  mkdir -p "$cache" || noop "cannot create $cache"
+  base="https://github.com/$REPO/releases/download/v$VERSION"
+  tmp="$bin.tmp.$$"
+  if command -v curl >/dev/null 2>&1; then
+    get() { curl -fsSL --retry 2 -o "$2" "$1"; }
+  elif command -v wget >/dev/null 2>&1; then
+    get() { wget -q -O "$2" "$1"; }
+  else
+    noop "need curl or wget to download the binary (or set GIT_PROMPTED_BIN)"
+  fi
+  get "$base/$name" "$tmp" || { rm -f "$tmp"; noop "download failed: $base/$name"; }
+  get "$base/checksums.txt" "$cache/checksums.txt" || { rm -f "$tmp"; noop "could not fetch checksums.txt"; }
+  want=$(grep " $name\$" "$cache/checksums.txt" | cut -d' ' -f1)
+  if command -v sha256sum >/dev/null 2>&1; then got=$(sha256sum "$tmp" | cut -d' ' -f1)
+  elif command -v shasum >/dev/null 2>&1; then got=$(shasum -a 256 "$tmp" | cut -d' ' -f1)
+  else rm -f "$tmp"; noop "need sha256sum or shasum to verify the download"; fi
+  if [ -z "$want" ] || [ "$want" != "$got" ]; then rm -f "$tmp"; noop "checksum mismatch for $name; refusing to run it"; fi
+  chmod +x "$tmp" && mv "$tmp" "$bin" || noop "could not install $bin"
+fi
+run "$bin" "$@"

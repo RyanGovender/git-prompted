@@ -1,0 +1,6 @@
+{
+  "name": "git-prompted",
+  "version": "0.3.0",
+  "description": "The AI prompts you back: learning checkpoints that pause before code in topics you want to practise, quiz you afterwards and track your weak spots. No extra AI bill.",
+  "contextFileName": "GEMINI.md"
+}

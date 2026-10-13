@@ -1,0 +1,13 @@
+{
+  "hooks": {
+    "SessionStart": [
+      { "hooks": [ { "type": "command", "name": "git-prompted-session", "command": "\"${extensionPath}/bin/git-prompted\" hook gemini session-start", "timeout": 30000 } ] }
+    ],
+    "BeforeTool": [
+      { "hooks": [ { "type": "command", "name": "git-prompted-checkpoint", "command": "\"${extensionPath}/bin/git-prompted\" hook gemini before-edit", "timeout": 30000 } ] }
+    ],
+    "AfterAgent": [
+      { "hooks": [ { "type": "command", "name": "git-prompted-quiz", "command": "\"${extensionPath}/bin/git-prompted\" hook gemini after-turn", "timeout": 30000 } ] }
+    ]
+  }
+}

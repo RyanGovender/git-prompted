@@ -1,0 +1,13 @@
+{
+  "name": "git-prompted",
+  "owner": {
+    "name": "YOUR_NAME"
+  },
+  "plugins": [
+    {
+      "name": "git-prompted",
+      "source": "./integrations/claude",
+      "description": "The AI prompts you back: learning checkpoints, quizzes and weak-spot tracking for topics you want to keep thinking about yourself."
+    }
+  ]
+}
