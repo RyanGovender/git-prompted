@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -58,7 +59,7 @@ func ParseTopicsJSON(raw []byte) ([]*Topic, error) {
 	if err != nil {
 		return nil, fmt.Errorf("invalid topic JSON: %v", err)
 	}
-	if dec.More() {
+	if dec.Decode(&json.RawMessage{}) != io.EOF {
 		return nil, fmt.Errorf("invalid topic JSON: trailing data after the first value; pass an array for several topics")
 	}
 	if len(topics) == 0 {
@@ -134,7 +135,11 @@ func ListTopics(catalog []*Topic) ([]TopicListing, error) {
 	}
 	var out []TopicListing
 	for _, t := range catalog {
-		out = append(out, listing(t, "catalog", indexOf(mine, t.ID) >= 0))
+		if i := indexOf(mine, t.ID); i >= 0 {
+			out = append(out, listing(mine[i], "catalog", true)) // the user's version is the one that runs
+		} else {
+			out = append(out, listing(t, "catalog", false))
+		}
 	}
 	for _, t := range mine {
 		if indexOf(catalog, t.ID) < 0 {
@@ -183,6 +188,11 @@ func decodeUserConfig(raw []byte) (map[string]json.RawMessage, []*Topic, error) 
 	}
 	if err != nil {
 		return nil, nil, fmt.Errorf("%s is not valid JSON (%v); fix or move it, then retry", UserConfigPath(), err)
+	}
+	for i, t := range topics {
+		if t == nil {
+			return nil, nil, fmt.Errorf("%s: topic %d is null; remove it, then retry", UserConfigPath(), i+1)
+		}
 	}
 	return keys, topics, nil
 }

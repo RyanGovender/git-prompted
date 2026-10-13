@@ -79,6 +79,14 @@ func (e *Engine) SessionStart(ev Event) (string, error) {
 // brings it back. Cfg may be nil, or hold project-only topics whose usual session
 // text is kept. Returns "" when there is nothing to say.
 func (e *Engine) OnboardingStart(ev Event) (string, error) {
+	var base string
+	if e.Cfg != nil {
+		var err error
+		if base, err = e.SessionStart(ev); err != nil {
+			return "", err
+		}
+	}
+	// Recorded only once the rest succeeded, so a failed start doesn't use up the one offer.
 	var offer bool
 	err := WithState(func(s *State) error {
 		offer = s.OnboardingOffered == 0
@@ -89,12 +97,6 @@ func (e *Engine) OnboardingStart(ev Event) (string, error) {
 	})
 	if err != nil {
 		return "", err
-	}
-	var base string
-	if e.Cfg != nil {
-		if base, err = e.SessionStart(ev); err != nil {
-			return "", err
-		}
 	}
 	if !offer {
 		return base, nil

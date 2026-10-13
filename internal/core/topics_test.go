@@ -174,7 +174,7 @@ func TestRemoveTopicsWithoutConfigWritesNothing(t *testing.T) {
 func TestListTopicsMarksSelectedAndCustom(t *testing.T) {
 	tempHome(t)
 	catalog := []*Topic{{ID: "sql", Name: "SQL", Mode: "quiz-after", Patterns: []string{"x"}}, {ID: "testing", Patterns: []string{"y"}}}
-	os.WriteFile(UserConfigPath(), []byte(`{"topics":[{"id":"sql","patterns":["x"]},{"id":"react-hooks","name":"React hooks","patterns":["useState"]}]}`), 0o644)
+	os.WriteFile(UserConfigPath(), []byte(`{"topics":[{"id":"sql","mode":"quiz-after","patterns":["x"]},{"id":"react-hooks","name":"React hooks","patterns":["useState"]}]}`), 0o644)
 	list, err := ListTopics(catalog)
 	if err != nil {
 		t.Fatal(err)
@@ -324,5 +324,40 @@ func TestCatalogIgnoresLookalikes(t *testing.T) {
 				t.Errorf("%s should match %q", id, code)
 			}
 		}
+	}
+}
+
+func TestParseTopicsJSONRejectsTrailingDelimiter(t *testing.T) {
+	for _, in := range []string{`{"id":"a","patterns":["x"]}}`, `[{"id":"a","patterns":["x"]}]]`} {
+		if _, err := ParseTopicsJSON([]byte(in)); err == nil || !strings.Contains(err.Error(), "trailing data") {
+			t.Errorf("%q: got %v, want trailing data error", in, err)
+		}
+	}
+}
+
+func TestListTopicsShowsTheUsersVersionOfACatalogTopic(t *testing.T) {
+	tempHome(t)
+	catalog := []*Topic{{ID: "sql", Name: "SQL", Mode: "quiz-after", Goals: []string{"catalog goal"}, Patterns: []string{"x"}}}
+	os.WriteFile(UserConfigPath(), []byte(`{"topics":[{"id":"sql","name":"My SQL","mode":"ask-first","goals":["my goal"],"patterns":["x"]}]}`), 0o644)
+	list, err := ListTopics(catalog)
+	if err != nil || len(list) != 1 {
+		t.Fatalf("list %v err %v", list, err)
+	}
+	if l := list[0]; l.Name != "My SQL" || l.Mode != "ask-first" || l.Goals[0] != "my goal" || l.Source != "catalog" || !l.Selected {
+		t.Fatalf("want the user's active version: %+v", l)
+	}
+}
+
+func TestNullTopicInGoalsIsAnErrorNotACrash(t *testing.T) {
+	tempHome(t)
+	os.WriteFile(UserConfigPath(), []byte(`{"topics":[null]}`), 0o644)
+	if _, err := ListTopics(nil); err == nil || !strings.Contains(err.Error(), "null") {
+		t.Fatalf("list: %v", err)
+	}
+	if _, _, err := AddTopics([]*Topic{{ID: "a", Patterns: []string{"A"}}}); err == nil || !strings.Contains(err.Error(), "null") {
+		t.Fatalf("add: %v", err)
+	}
+	if _, _, err := RemoveTopics([]string{"a"}); err == nil {
+		t.Fatal("remove must refuse too")
 	}
 }
