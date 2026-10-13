@@ -119,6 +119,17 @@ func runHook(args []string, in io.Reader, out io.Writer) (code int) {
 		return 0
 	}
 	cfg := core.LoadConfig(ev.ProjectDir, warn)
+	if h == adapter.SessionStart && core.NeedsOnboarding(ev.Source) {
+		// No goals.json yet: instead of staying inert, ask the agent to let the user pick topics.
+		eng := &core.Engine{Cfg: cfg, Exe: stablePath(), Coaching: assets.Coaching}
+		text, err := eng.OnboardingStart(ev)
+		if err != nil {
+			warn("hook error ignored: " + err.Error())
+			return 0
+		}
+		resp = ad.Context(text)
+		return 0
+	}
 	if cfg == nil {
 		return 0
 	}

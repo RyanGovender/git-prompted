@@ -285,3 +285,14 @@ func CatalogTopics(catalog []*Topic, ids []string) ([]*Topic, error) {
 	}
 	return out, nil
 }
+
+// NeedsOnboarding reports whether a session start should run topic onboarding: a
+// fresh session and no personal goals.json yet. Declining writes an empty goals.json,
+// so the user is asked once.
+func NeedsOnboarding(source string) bool {
+	if source != "" && source != "startup" && source != "clear" {
+		return false
+	}
+	_, err := os.Stat(UserConfigPath())
+	return errors.Is(err, os.ErrNotExist)
+}

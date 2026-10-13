@@ -382,3 +382,46 @@ func TestTopicsCommand(t *testing.T) {
 		t.Fatalf("prose edit fired: %s", out)
 	}
 }
+
+func TestOnboardingWhenNoConfig(t *testing.T) {
+	for _, agent := range []string{"claude", "codex", "gemini"} {
+		t.Run(agent, func(t *testing.T) {
+			setupEmpty(t)
+			start := hook(t, agent, "session-start", `{"session_id":"o1","source":"startup"}`)
+			for _, want := range []string{"no learning topics are set up yet", "topics list --json", "topics add --json -", "init --empty"} {
+				if !strings.Contains(start, want) {
+					t.Fatalf("missing %q in: %s", want, start)
+				}
+			}
+			if agent == "codex" && !strings.Contains(start, "## Onboarding") {
+				t.Fatal("codex should get the coaching guide inlined")
+			}
+			if out := hook(t, agent, "session-start", `{"session_id":"o1","source":"resume"}`); out != "" && out != "{}" {
+				t.Fatalf("resume must not onboard: %s", out)
+			}
+		})
+	}
+}
+
+func TestDecliningOrRemovingAllTopicsStaysQuiet(t *testing.T) {
+	setupEmpty(t)
+	cmd(t, "init", "--empty")
+	if out := hook(t, "claude", "session-start", `{"session_id":"o2","source":"startup"}`); out != "" {
+		t.Fatalf("declined onboarding must stay quiet: %s", out)
+	}
+	cmd(t, "topics", "add", "sql")
+	cmd(t, "topics", "remove", "sql")
+	if out := hook(t, "claude", "session-start", `{"session_id":"o3","source":"startup"}`); out != "" {
+		t.Fatalf("no topics left must stay quiet: %s", out)
+	}
+}
+
+func TestOnboardingKeepsProjectTopics(t *testing.T) {
+	setupEmpty(t)
+	proj := t.TempDir()
+	os.WriteFile(filepath.Join(proj, ".git-prompted.json"), []byte(`{"topics":[{"id":"hexagonal","name":"Ports and adapters","paths":["internal/adapters/**"]}]}`), 0o644)
+	start := hook(t, "claude", "session-start", `{"session_id":"o4","cwd":"`+proj+`","source":"startup"}`)
+	if !strings.Contains(start, "Ports and adapters") || !strings.Contains(start, "no learning topics are set up yet") {
+		t.Fatalf("want project topics and onboarding: %s", start)
+	}
+}

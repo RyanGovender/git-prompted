@@ -266,3 +266,16 @@ func TestCatalogTopicsPicksByID(t *testing.T) {
 		t.Fatal("duplicate catalog ids must fail")
 	}
 }
+
+func TestNeedsOnboarding(t *testing.T) {
+	tempHome(t)
+	for src, want := range map[string]bool{"": true, "startup": true, "clear": true, "resume": false, "compact": false} {
+		if got := NeedsOnboarding(src); got != want {
+			t.Errorf("source %q: got %v", src, got)
+		}
+	}
+	os.WriteFile(UserConfigPath(), []byte(`{"topics":[]}`), 0o644)
+	if NeedsOnboarding("startup") {
+		t.Fatal("an existing goals.json (even empty) means onboarding is done or declined")
+	}
+}
