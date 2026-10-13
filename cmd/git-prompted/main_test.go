@@ -245,3 +245,52 @@ func TestStatusShowsTopicModes(t *testing.T) {
 		}
 	}
 }
+
+// The commands printed in prompts must run as printed.
+func TestPrintedCommandsRun(t *testing.T) {
+	setup(t)
+	out := hook(t, "claude", "before-edit", `{"session_id":"p1","cwd":"/p","tool_name":"Write","tool_input":{"file_path":"/p/w.go","content":"go func() {}()"}}`)
+	var resp struct {
+		HookSpecificOutput struct {
+			PermissionDecisionReason string `json:"permissionDecisionReason"`
+		} `json:"hookSpecificOutput"`
+	}
+	if err := json.Unmarshal([]byte(out), &resp); err != nil {
+		t.Fatalf("decode %q: %v", out, err)
+	}
+	var line string
+	for _, l := range strings.Split(resp.HookSpecificOutput.PermissionDecisionReason, "\n") {
+		if i := strings.Index(l, "run: "); i >= 0 && strings.Contains(l, "--choice skip") {
+			line = l[i+len("run: "):]
+		}
+	}
+	args := strings.Fields(line)
+	if len(args) < 2 {
+		t.Fatalf("no skip command in prompt:\n%s", resp.HookSpecificOutput.PermissionDecisionReason)
+	}
+	cmd(t, args[1:]...) // drop the binary path
+	if core.ReadState().Cooldowns["concurrency"] == 0 {
+		t.Fatal("printed skip command did not record the decision")
+	}
+	cmd(t, "--session", "p1", "done", "--topic", "concurrency", "--result", "nailed")
+	cmd(t, "--version")
+}
+
+// A quiz-after topic must not be queued for an edit that a checkpoint blocked.
+func TestBlockedEditDoesNotQueueQuiz(t *testing.T) {
+	setup(t)
+	edit := `{"session_id":"q1","cwd":"/p","tool_name":"Write","tool_input":{"file_path":"/p/s.go","content":"go func() {}()\ntype Store interface { Get() }"}}`
+	if out := hook(t, "claude", "before-edit", edit); !strings.Contains(out, `"deny"`) {
+		t.Fatalf("expected a concurrency checkpoint: %s", out)
+	}
+	if out := hook(t, "claude", "after-turn", `{"session_id":"q1","cwd":"/p"}`); out != "" {
+		t.Fatalf("quiz offered for code that was never written: %s", out)
+	}
+	cmd(t, "decide", "--session", "q1", "--topic", "concurrency", "--choice", "skip")
+	if out := hook(t, "claude", "before-edit", edit); strings.Contains(out, `"deny"`) {
+		t.Fatalf("retried edit should be allowed: %s", out)
+	}
+	if out := hook(t, "claude", "after-turn", `{"session_id":"q1","cwd":"/p"}`); !strings.Contains(out, "Architecture") {
+		t.Fatalf("expected architecture quiz once the edit went through: %s", out)
+	}
+}

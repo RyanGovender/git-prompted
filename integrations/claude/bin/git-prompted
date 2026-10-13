@@ -5,7 +5,7 @@
 # It also keeps ~/.git-prompted/bin/git-prompted pointing at the current binary, so
 # configs that store a path survive upgrades. Put that dir on PATH to get `git prompted`.
 # Generated copies live in integrations/*; edit this file and run scripts/sync.sh.
-VERSION="0.3.1"
+VERSION="0.3.2"
 REPO="${GIT_PROMPTED_REPO:-ryangovender/git-prompted}"
 
 ARG1="${1:-}"; ARG2="${2:-}"

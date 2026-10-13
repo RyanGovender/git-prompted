@@ -84,7 +84,7 @@ Use `printf '%s'`, not `echo`: `sh`'s echo turns `\n` inside the JSON into raw n
 
 ## Known gaps / verify before trusting
 
-- Hook payloads were built from docs and **simulated in tests, not yet verified against live CLIs**. Most likely to drift: Gemini edit tool names (`write_file`, `replace`), Codex `apply_patch` payload fields and how Codex hooks are enabled, and whether `${CLAUDE_PLUGIN_ROOT}` expands inside slash-command markdown. When you verify one, capture a real payload as a test fixture.
+- Hook payloads were built from docs and **simulated in tests**. Claude Code is verified live (PreToolUse deny, Stop block, `${CLAUDE_PLUGIN_ROOT}` in hooks and slash-command markdown); Gemini and Codex are not yet. Most likely to drift: Gemini edit tool names (`write_file`, `replace`), Codex `apply_patch` payload fields and how Codex hooks are enabled. When you verify one, capture a real payload as a test fixture.
 - Native Windows: the launcher is POSIX sh (works under Git Bash/WSL). A `.cmd` launcher is open work.
 - Placeholder to replace before publishing: `YOUR_NAME` (manifests, LICENSE). GitHub Actions are unpinned; pin them to commit SHAs.
 

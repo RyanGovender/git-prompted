@@ -163,7 +163,17 @@ func splitArgs(args []string) (pos, flags []string) {
 
 func runCommand(args []string) error {
 	name := args[0]
-	pos, flagArgs := splitArgs(args[1:])
+	var pos, flagArgs []string
+	switch name {
+	case "--version", "-v", "--help", "-h":
+	default:
+		// Flags may also come before the command (`--session ID done ...`), the form prompts print.
+		pos, flagArgs = splitArgs(args)
+		if len(pos) == 0 {
+			return fmt.Errorf("no command given (try: git-prompted help)")
+		}
+		name, pos = pos[0], pos[1:]
+	}
 	fs := flag.NewFlagSet(name, flag.ContinueOnError)
 	session := fs.String("session", "", "session id")
 	topic := fs.String("topic", "", "topic id")
