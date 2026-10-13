@@ -8,3 +8,6 @@ var GoalsExample []byte
 
 //go:embed coaching.md
 var Coaching string
+
+//go:embed topics.json
+var Topics []byte

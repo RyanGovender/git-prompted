@@ -6,6 +6,8 @@ import (
 	"os"
 	"strings"
 	"testing"
+
+	"github.com/ryangovender/git-prompted/assets"
 )
 
 func TestValidateTopicRejectsBadInput(t *testing.T) {
@@ -189,5 +191,78 @@ func TestListTopicsMarksSelectedAndCustom(t *testing.T) {
 	}
 	if !got["react-hooks"].Selected || got["react-hooks"].Source != "custom" {
 		t.Fatalf("custom: %+v", got["react-hooks"])
+	}
+}
+
+func catalog(t *testing.T) []*Topic {
+	t.Helper()
+	c, err := ParseCatalog(assets.Topics)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return c
+}
+
+// Each catalog topic must fire on code that exercises it and stay quiet on plain code.
+func TestCatalogIsValidAndTargeted(t *testing.T) {
+	tempHome(t)
+	c := catalog(t)
+	if _, _, err := AddTopics(c); err != nil {
+		t.Fatal(err)
+	}
+	cfg := LoadConfig(t.TempDir(), func(w string) { t.Errorf("warn: %s", w) })
+	if cfg == nil || len(cfg.Topics) != len(c) {
+		t.Fatal("catalog did not round-trip through goals.json")
+	}
+	hits := map[string]string{
+		"concurrency":    "go func() { ch <- 1 }()",
+		"architecture":   "type Store interface { Get() }",
+		"error-handling": `return fmt.Errorf("load: %w", err)`,
+		"sql":            `rows, err := db.QueryContext(ctx, "SELECT id FROM users")`,
+		"testing":        "func TestParse(t *testing.T) {",
+		"security":       "hash, _ := bcrypt.GenerateFromPassword(pw, 12)",
+		"performance":    "func BenchmarkParse(b *testing.B) {",
+		"api-design":     `mux.HandleFunc("/users", listUsers)`,
+	}
+	plain := []string{
+		"x := 1",
+		"if err != nil {\n\treturn err\n}",
+		"return nil",
+		"func add(a, b int) int { return a + b }",
+		`fmt.Println("hello")`,
+	}
+	for _, tp := range cfg.Topics {
+		code, ok := hits[tp.ID]
+		if !ok {
+			t.Errorf("no fixture for catalog topic %s; add one", tp.ID)
+			continue
+		}
+		if !tp.Matches([]string{"x.go"}, code) {
+			t.Errorf("%s should match %q", tp.ID, code)
+		}
+		for _, p := range plain {
+			if tp.Matches([]string{"x.go"}, p) {
+				t.Errorf("%s fires on plain code %q", tp.ID, p)
+			}
+		}
+	}
+	for _, id := range DefaultTopicIDs {
+		if indexOf(c, id) < 0 {
+			t.Errorf("default topic %s missing from catalog", id)
+		}
+	}
+}
+
+func TestCatalogTopicsPicksByID(t *testing.T) {
+	c := catalog(t)
+	got, err := CatalogTopics(c, []string{"Error Handling", "sql", "sql"})
+	if err != nil || len(got) != 2 || got[0].ID != "error-handling" || got[1].ID != "sql" {
+		t.Fatalf("got %v err %v", got, err)
+	}
+	if _, err := CatalogTopics(c, []string{"nope"}); err == nil || !strings.Contains(err.Error(), "concurrency") {
+		t.Fatalf("unknown id should list valid ids: %v", err)
+	}
+	if _, err := ParseCatalog([]byte(`[{"id":"a","patterns":["x"]},{"id":"a","patterns":["y"]}]`)); err == nil {
+		t.Fatal("duplicate catalog ids must fail")
 	}
 }

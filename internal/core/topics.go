@@ -239,3 +239,49 @@ func editUserConfig(fn func([]*Topic) ([]*Topic, bool)) error {
 	}
 	return os.Rename(tmp, path)
 }
+
+// DefaultTopicIDs are what `init --defaults` sets up (the pre-0.4 example config).
+var DefaultTopicIDs = []string{"concurrency", "architecture"}
+
+// ParseCatalog parses and checks the built-in topic catalog (assets/topics.json).
+func ParseCatalog(raw []byte) ([]*Topic, error) {
+	topics, err := ParseTopicsJSON(raw)
+	if err != nil {
+		return nil, err
+	}
+	seen := map[string]bool{}
+	for _, t := range topics {
+		if err := ValidateTopic(t); err != nil {
+			return nil, err
+		}
+		if seen[t.ID] {
+			return nil, fmt.Errorf("topic %s listed twice", t.ID)
+		}
+		seen[t.ID] = true
+	}
+	return topics, nil
+}
+
+// CatalogTopics picks catalog entries by id (normalised, duplicates dropped).
+// An unknown id fails with the list of valid ones.
+func CatalogTopics(catalog []*Topic, ids []string) ([]*Topic, error) {
+	var out []*Topic
+	seen := map[string]bool{}
+	for _, id := range ids {
+		id = NormalizeTag(id)
+		if seen[id] {
+			continue
+		}
+		seen[id] = true
+		i := indexOf(catalog, id)
+		if i < 0 {
+			var valid []string
+			for _, t := range catalog {
+				valid = append(valid, t.ID)
+			}
+			return nil, fmt.Errorf("no catalog topic %q; choose from: %s (or add a custom topic with --json -)", id, strings.Join(valid, ", "))
+		}
+		out = append(out, catalog[i])
+	}
+	return out, nil
+}

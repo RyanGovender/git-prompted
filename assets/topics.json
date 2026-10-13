@@ -1,0 +1,166 @@
+[
+  {
+    "id": "concurrency",
+    "name": "Concurrency",
+    "mode": "ask-first",
+    "level": "intermediate",
+    "goals": [
+      "Reason about goroutine/task lifetimes and how they end",
+      "Choose between channels, mutexes and errgroup with a reason",
+      "Spot races, leaks and missing cancellation before they ship"
+    ],
+    "patterns": [
+      "\\bgo func\\b",
+      "\\bchan\\b",
+      "sync\\.(Mutex|RWMutex|WaitGroup|Once|Cond)",
+      "errgroup\\.",
+      "\\bselect\\s*\\{",
+      "asyncio\\.",
+      "threading\\.",
+      "Promise\\.(all|race|any)"
+    ],
+    "concepts": ["goroutine-lifetime", "cancellation", "channel-ownership", "data-race", "goroutine-leak", "backpressure", "error-propagation", "mutex-vs-channel"]
+  },
+  {
+    "id": "architecture",
+    "name": "Architecture & boundaries",
+    "mode": "quiz-after",
+    "level": "advanced",
+    "goals": [
+      "Explain why a boundary or interface exists and who owns it",
+      "Keep domain logic independent of transport and storage",
+      "Weigh the trade-offs of a design, not just its happy path"
+    ],
+    "patterns": [
+      "type \\w+ interface\\s*\\{",
+      "class \\w+\\(ABC\\)",
+      "export interface \\w+"
+    ],
+    "concepts": ["dependency-direction", "boundary-ownership", "interface-placement", "domain-isolation", "testing-seams", "coupling", "trade-offs"]
+  },
+  {
+    "id": "error-handling",
+    "name": "Error handling",
+    "mode": "ask-first",
+    "level": "intermediate",
+    "goals": [
+      "Decide whether to handle, wrap or return an error, and say why",
+      "Add context when wrapping without losing the original error",
+      "Design failure paths callers can act on (sentinels, types, errors.Is/As)"
+    ],
+    "patterns": [
+      "errors\\.(Is|As|New|Join|Unwrap)\\(",
+      "fmt\\.Errorf\\(.*%w",
+      "\\bpanic\\(",
+      "\\brecover\\(\\)",
+      "\\bexcept\\s+\\w+",
+      "\\braise\\s+\\w+",
+      "\\bcatch\\s*\\("
+    ],
+    "concepts": ["error-wrapping", "sentinel-errors", "error-types", "errors-is-as", "panic-vs-error", "error-context", "fail-fast", "partial-failure"]
+  },
+  {
+    "id": "sql",
+    "name": "SQL & data access",
+    "mode": "quiz-after",
+    "level": "intermediate",
+    "goals": [
+      "Write queries that are correct under concurrent writes (transactions, isolation)",
+      "Know which index a query needs and why",
+      "Write migrations that are safe to run on a live database"
+    ],
+    "patterns": [
+      "(?i)\\bselect\\b[\\s\\S]+?\\bfrom\\b",
+      "(?i)\\binsert\\s+into\\b",
+      "(?i)\\bupdate\\s+\\w+\\s+set\\b",
+      "(?i)\\bdelete\\s+from\\b",
+      "(?i)\\b(create|alter|drop)\\s+(table|index)\\b",
+      "\\.(Query|QueryRow|Exec)(Context)?\\(",
+      "\\.BeginTx?\\(",
+      "database/sql"
+    ],
+    "concepts": ["transactions", "isolation-levels", "indexing", "n-plus-one", "sql-injection", "safe-migrations", "locking", "connection-pooling"]
+  },
+  {
+    "id": "testing",
+    "name": "Testing",
+    "mode": "quiz-after",
+    "level": "intermediate",
+    "goals": [
+      "Decide what a test must prove before writing it",
+      "Pick the right seam: unit, integration or end-to-end",
+      "Write tests that fail for the right reason and do not flake"
+    ],
+    "patterns": [
+      "\\bfunc (Test|Fuzz)\\w*\\(\\w+ \\*testing\\.[TF]\\)",
+      "\\bt\\.Run\\(",
+      "\\bdef test_\\w+",
+      "@pytest\\.(fixture|mark)",
+      "\\b(describe|it|test)\\(\\s*['\"\\x60]",
+      "\\bexpect\\(.+\\)\\.(to|not)",
+      "httptest\\."
+    ],
+    "concepts": ["test-boundaries", "table-driven-tests", "test-doubles", "flaky-tests", "assertion-quality", "test-isolation", "coverage-vs-confidence"]
+  },
+  {
+    "id": "security",
+    "name": "Security",
+    "mode": "ask-first",
+    "level": "intermediate",
+    "goals": [
+      "Treat every external input as hostile until validated",
+      "Store and compare secrets and passwords safely",
+      "Know the difference between authentication and authorisation in this code"
+    ],
+    "patterns": [
+      "golang\\.org/x/crypto|\\bcrypto/(rand|subtle|hmac|sha256|aes)",
+      "\\b(bcrypt|argon2|scrypt)\\.",
+      "(?i)\\b(jwt|jsonwebtoken)\\b",
+      "(?i)\\b(password|passwd|secret|api_?key)\\w*\\s*:?=",
+      "exec\\.Command(Context)?\\(|\\bsubprocess\\.|child_process|\\bos\\.system\\(",
+      "\\.innerHTML\\s*=|dangerouslySetInnerHTML|template\\.HTML\\(",
+      "http\\.SetCookie\\(|(?i)set-cookie"
+    ],
+    "concepts": ["input-validation", "injection", "authn-vs-authz", "secret-handling", "password-hashing", "least-privilege", "output-encoding", "session-security"]
+  },
+  {
+    "id": "performance",
+    "name": "Performance",
+    "mode": "quiz-after",
+    "level": "intermediate",
+    "goals": [
+      "Measure before optimising, and know what the measurement says",
+      "Spot allocations and complexity that matter on the hot path",
+      "Know when a cache helps and what it costs"
+    ],
+    "patterns": [
+      "func Benchmark\\w*\\(\\w+ \\*testing\\.B\\)",
+      "\\bsync\\.Pool\\b",
+      "\\bpprof\\b",
+      "\\bmake\\(\\[\\][^,()]+,\\s*0\\s*,",
+      "(?i)\\b(lru_?)?cache\\b",
+      "\\buse(Memo|Callback)\\(|\\bReact\\.memo\\("
+    ],
+    "concepts": ["measure-first", "allocation", "algorithmic-complexity", "caching", "batching", "profiling", "memoization", "hot-path"]
+  },
+  {
+    "id": "api-design",
+    "name": "API design",
+    "mode": "ask-first",
+    "level": "intermediate",
+    "goals": [
+      "Shape requests and responses around what callers need, not the storage model",
+      "Pick status codes and error shapes callers can act on",
+      "Change an API without breaking existing clients"
+    ],
+    "patterns": [
+      "\\.HandleFunc\\(|\\bhttp\\.Handle\\(",
+      "\\b(app|router|r|mux)\\.(Get|Post|Put|Patch|Delete|get|post|put|patch|delete)\\(\\s*['\"\\x60]",
+      "@(app|router)\\.(get|post|put|patch|delete|route)\\(",
+      "\\bw\\.WriteHeader\\(|\\bhttp\\.Error\\(",
+      "^\\s*rpc \\w+\\s*\\(",
+      "(?i)^openapi:\\s"
+    ],
+    "concepts": ["resource-modelling", "status-codes", "versioning", "idempotency", "pagination", "error-contract", "backward-compatibility"]
+  }
+]
