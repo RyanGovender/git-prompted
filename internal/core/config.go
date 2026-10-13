@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"path"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -36,8 +37,27 @@ func (t *Topic) DisplayName() string {
 // QuizAfter reports whether the topic quizzes after the turn instead of pausing before edits.
 func (t *Topic) QuizAfter() bool { return t.Mode == "quiz-after" }
 
+// proseExt marks files that are writing, not code. Docs quote code all the time,
+// so a topic only fires on them when its paths ask for them.
+var proseExt = map[string]bool{".md": true, ".mdx": true, ".txt": true, ".rst": true, ".adoc": true}
+
+func allProse(files []string) bool {
+	if len(files) == 0 {
+		return false
+	}
+	for _, f := range files {
+		if !proseExt[strings.ToLower(path.Ext(f))] {
+			return false
+		}
+	}
+	return true
+}
+
 // Matches reports whether a change touching files with the given code exercises this topic.
 func (t *Topic) Matches(files []string, code string) bool {
+	if len(t.paths) == 0 && allProse(files) {
+		return false
+	}
 	if len(t.paths) > 0 {
 		hit := false
 		for _, f := range files {
