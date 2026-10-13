@@ -35,18 +35,18 @@ git prompted is a ~2 MB Go binary with **no model calls and no network access** 
 
 **Claude Code**
 ```
-/plugin marketplace add YOUR_GITHUB_USER/git-prompted
+/plugin marketplace add ryangovender/git-prompted
 /plugin install git-prompted@git-prompted
 ```
 
 **Gemini CLI** (v0.26+, where hooks are on by default)
 ```sh
-gemini extensions install https://github.com/YOUR_GITHUB_USER/git-prompted
+gemini extensions install https://github.com/ryangovender/git-prompted
 ```
 
 **Codex CLI**: see [integrations/codex](integrations/codex/README.md):
 ```sh
-go install github.com/YOUR_GITHUB_USER/git-prompted/cmd/git-prompted@latest
+go install github.com/ryangovender/git-prompted/cmd/git-prompted@latest
 git prompted install codex
 ```
 

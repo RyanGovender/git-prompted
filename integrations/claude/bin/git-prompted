@@ -6,7 +6,7 @@
 # configs that store a path survive upgrades. Put that dir on PATH to get `git prompted`.
 # Generated copies live in integrations/*; edit this file and run scripts/sync.sh.
 VERSION="0.3.0"
-REPO="${GIT_PROMPTED_REPO:-YOUR_GITHUB_USER/git-prompted}"
+REPO="${GIT_PROMPTED_REPO:-ryangovender/git-prompted}"
 
 ARG1="${1:-}"; ARG2="${2:-}"
 home_dir="${GIT_PROMPTED_HOME:-$HOME/.git-prompted}"

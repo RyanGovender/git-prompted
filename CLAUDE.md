@@ -86,7 +86,7 @@ Use `printf '%s'`, not `echo`: `sh`'s echo turns `\n` inside the JSON into raw n
 
 - Hook payloads were built from docs and **simulated in tests, not yet verified against live CLIs**. Most likely to drift: Gemini edit tool names (`write_file`, `replace`), Codex `apply_patch` payload fields and how Codex hooks are enabled, and whether `${CLAUDE_PLUGIN_ROOT}` expands inside slash-command markdown. When you verify one, capture a real payload as a test fixture.
 - Native Windows: the launcher is POSIX sh (works under Git Bash/WSL). A `.cmd` launcher is open work.
-- Placeholders to replace before publishing: `YOUR_GITHUB_USER` (go.mod, imports, launcher `REPO`, docs) and `YOUR_NAME` (manifests, LICENSE). GitHub Actions are unpinned; pin them to commit SHAs.
+- Placeholder to replace before publishing: `YOUR_NAME` (manifests, LICENSE). GitHub Actions are unpinned; pin them to commit SHAs.
 
 ## Roadmap (next up)
 
