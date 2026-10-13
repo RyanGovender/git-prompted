@@ -232,3 +232,16 @@ func TestInstallStatusLineWrapsAndRestores(t *testing.T) {
 		t.Fatalf("restored: %s", raw)
 	}
 }
+
+func TestStatusShowsTopicModes(t *testing.T) {
+	setup(t)
+	var out bytes.Buffer
+	if err := status(&out, "/p", ""); err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{"concurrency      ask-first", "architecture     quiz-after"} {
+		if !strings.Contains(out.String(), want) {
+			t.Fatalf("status missing %q:\n%s", want, out.String())
+		}
+	}
+}

@@ -207,7 +207,7 @@ func runCommand(args []string) error {
 		fmt.Printf("Created %s. Edit topics, patterns and goals to taste.\n", path)
 		return nil
 	case "status":
-		return status(cwd, *session)
+		return status(os.Stdout, cwd, *session)
 	case "progress":
 		path, err := core.WriteProgress()
 		if err == nil {
@@ -313,24 +313,24 @@ func runCommand(args []string) error {
 	})
 }
 
-func status(cwd, session string) error {
+func status(w io.Writer, cwd, session string) error {
 	s := core.ReadState()
 	if session == "" {
 		session = s.CurrentSession
 	}
 	if sess, ok := s.Sessions[session]; ok {
-		fmt.Printf("Session %s (%s): checkpoints %s, %d asked\n", session, sess.Agent, sess.Mode, sess.Checkpoints)
+		fmt.Fprintf(w, "Session %s (%s): checkpoints %s, %d asked\n", session, sess.Agent, sess.Mode, sess.Checkpoints)
 	} else {
-		fmt.Println("No active session yet.")
+		fmt.Fprintln(w, "No active session yet.")
 	}
 	cfg := core.LoadConfig(cwd, warn)
 	if cfg == nil {
-		fmt.Printf("No topics configured. Run: git-prompted init (then edit %s)\n", core.UserConfigPath())
+		fmt.Fprintf(w, "No topics configured. Run: git-prompted init (then edit %s)\n", core.UserConfigPath())
 		return nil
 	}
 	now := float64(time.Now().Unix())
 	for _, t := range cfg.Topics {
-		mode := "git-prompted"
+		mode := "ask-first"
 		if t.QuizAfter() {
 			mode = "quiz-after"
 		}
@@ -340,7 +340,7 @@ func status(cwd, session string) error {
 		} else if left := cfg.Cooldown().Seconds() - (now - s.Cooldowns[t.ID]); left > 0 {
 			flag = fmt.Sprintf("cooling down %dm", int(left/60))
 		}
-		fmt.Printf("  %-16s %-12s %s\n", t.ID, mode, flag)
+		fmt.Fprintf(w, "  %-16s %-12s %s\n", t.ID, mode, flag)
 	}
 	return nil
 }
