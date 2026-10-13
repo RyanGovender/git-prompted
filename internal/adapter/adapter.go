@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/YOUR_GITHUB_USER/git-prompted/internal/core"
+	"github.com/ryangovender/git-prompted/internal/core"
 )
 
 // Hook is the normalised hook kind (the CLI's native event is mapped in its hooks config).

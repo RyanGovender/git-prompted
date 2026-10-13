@@ -14,9 +14,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/YOUR_GITHUB_USER/git-prompted/assets"
-	"github.com/YOUR_GITHUB_USER/git-prompted/internal/adapter"
-	"github.com/YOUR_GITHUB_USER/git-prompted/internal/core"
+	"github.com/ryangovender/git-prompted/assets"
+	"github.com/ryangovender/git-prompted/internal/adapter"
+	"github.com/ryangovender/git-prompted/internal/core"
 )
 
 var version = "dev" // set with -ldflags "-X main.version=..."

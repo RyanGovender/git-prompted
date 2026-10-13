@@ -4,7 +4,7 @@ Codex has no plugin format, so the binary registers itself in `~/.codex/hooks.js
 (other hooks are preserved and the old file is backed up):
 
 ```sh
-go install github.com/YOUR_GITHUB_USER/git-prompted/cmd/git-prompted@latest
+go install github.com/ryangovender/git-prompted/cmd/git-prompted@latest
 # or download a release binary and put it on your PATH
 git-prompted install codex
 git-prompted init          # creates ~/.git-prompted/goals.json if you don't have one

@@ -8,8 +8,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/YOUR_GITHUB_USER/git-prompted/assets"
-	"github.com/YOUR_GITHUB_USER/git-prompted/internal/core"
+	"github.com/ryangovender/git-prompted/assets"
+	"github.com/ryangovender/git-prompted/internal/core"
 )
 
 func setup(t *testing.T) string {

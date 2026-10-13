@@ -11,7 +11,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/YOUR_GITHUB_USER/git-prompted/internal/core"
+	"github.com/ryangovender/git-prompted/internal/core"
 )
 
 func printStats(sum core.Summary) {
