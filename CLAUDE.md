@@ -16,13 +16,14 @@ Opt-in learning checkpoints for coding agents (Claude Code, Codex CLI, Gemini CL
 cmd/git-prompted/      main.go: hook dispatch + CLI commands + Codex installer
                        ui.go: stats output, status line, Claude status line installer
 internal/core/         agent-agnostic engine
-  config.go            goals.json + .git-prompted.json merge, topic matching, ** globs
+  config.go            goals.json + .git-prompted.json merge, topic matching (prose files skipped), ** globs
+  topics.go            topic catalog, validation, goals.json edits (topics add/remove), onboarding trigger
   state.go             ~/.git-prompted/state.json under a file lock; log.jsonl
   engine.go            SessionStart / BeforeEdit / AfterTurn decisions + prompt text
   analytics.go         Summarize(): topic scores/trends, per-concept accuracy, Leitner reviews,
                        progress.md, StatusLine()
 internal/adapter/      one Adapter per agent: parse its hook payload -> core.Event, format its response
-assets/                embedded into the binary: goals.example.json, coaching.md
+assets/                embedded into the binary: topics.json (topic catalog), coaching.md
 bin/git-prompted       POSIX launcher: local dist build > cached release > download+verify; keeps
                        ~/.git-prompted/bin/git-prompted symlinked to the current binary
 hooks/hooks.json, gemini-extension.json, GEMINI.md   Gemini extension (Gemini requires repo root)
@@ -74,6 +75,8 @@ Use `printf '%s'`, not `echo`: `sh`'s echo turns `\n` inside the JSON into raw n
 - Concept tags are normalised kebab-case (`core.NormalizeTag`). Any new tag-producing path must go through `SplitTags` / `NormalizeTag`.
 - Installers (`install codex|statusline`) must be idempotent, preserve other users' entries, back up the file first, and fully reverse on uninstall. Follow the existing pattern and add a test.
 - State changes go through `core.WithState` (file lock + atomic write). Don't write `state.json` directly.
+- Topics reach `goals.json` only through `core.AddTopics` / `RemoveTopics` (validated, locked, atomic, backed up). Don't write `goals.json` directly. New catalog topics need a must-match fixture in `TestCatalogIsValidAndTargeted`.
+- Onboarding (picking topics) is triggered by a missing `goals.json`; declining writes `{"topics": []}`. The conversation lives in `assets/coaching.md`.
 - Topic mode values: `ask-first` (default; legacy alias `think-first`) and `quiz-after`.
 
 ## Adding an agent

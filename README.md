@@ -50,9 +50,12 @@ go install github.com/ryangovender/git-prompted/cmd/git-prompted@latest
 git prompted install codex
 ```
 
-Then set your goals:
+Then pick your topics. The first time you start a session, your agent asks which topics you want to practise (from a built-in catalog, or describe your own and it drafts the topic for you) and saves them. Change them any time with `/git-prompted:learn init` in Claude Code, or ask your agent to "run git prompted onboarding". From a terminal:
 ```sh
-git prompted init      # writes ~/.git-prompted/goals.json, then edit it
+git prompted topics list                     # built-in catalog; * = already in your goals
+git prompted topics add sql error-handling
+git prompted topics remove architecture
+git prompted init --defaults                 # skip picking: concurrency + architecture
 ```
 
 ### Getting the `git prompted` command
@@ -126,7 +129,7 @@ integrations/codex/    Codex install notes
 ## Commands
 
 ```
-git prompted init | status | stats [--json] | progress | coaching | version
+git prompted init [--defaults|--empty] | topics list|add|remove | status | stats [--json] | progress | coaching | version
 git prompted session on|off
 git prompted decide --choice skip|session-off|mute [--topic ID]
 git prompted done --topic ID --result nailed|partial|missed [--got TAGS] [--missed TAGS] [--note TEXT]
