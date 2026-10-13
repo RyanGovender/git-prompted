@@ -1,6 +1,9 @@
 package core
 
 import (
+	"bytes"
+	"encoding/json"
+	"os"
 	"strings"
 	"testing"
 )
@@ -46,5 +49,145 @@ func TestParseTopicsJSONAcceptsObjectOrArray(t *testing.T) {
 		if err := ValidateTopic(tp); err != nil {
 			t.Fatal(err)
 		}
+	}
+}
+
+func tempHome(t *testing.T) string {
+	t.Helper()
+	h := t.TempDir()
+	t.Setenv("GIT_PROMPTED_HOME", h)
+	return h
+}
+
+func readGoals(t *testing.T) (map[string]json.RawMessage, []*Topic, []byte) {
+	t.Helper()
+	raw, err := os.ReadFile(UserConfigPath())
+	if err != nil {
+		t.Fatal(err)
+	}
+	keys, topics, err := decodeUserConfig(raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return keys, topics, raw
+}
+
+func TestAddTopicsReplacesInPlaceAndKeepsOtherKeys(t *testing.T) {
+	tempHome(t)
+	orig := []byte(`{"start_prompt":"on","cooldown_minutes":10,"topics":[{"id":"a","patterns":["A"]},{"id":"b","patterns":["B"]}]}`)
+	os.WriteFile(UserConfigPath(), orig, 0o644)
+
+	added, replaced, err := AddTopics([]*Topic{{ID: "a", Patterns: []string{"AA"}}, {ID: "c", Patterns: []string{"ch <- v"}}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Join(added, ",") != "c" || strings.Join(replaced, ",") != "a" {
+		t.Fatalf("added %v replaced %v", added, replaced)
+	}
+	keys, topics, raw := readGoals(t)
+	if string(keys["start_prompt"]) != `"on"` || string(keys["cooldown_minutes"]) != "10" {
+		t.Fatalf("other keys lost: %s", raw)
+	}
+	var ids []string
+	for _, tp := range topics {
+		ids = append(ids, tp.ID)
+	}
+	if strings.Join(ids, ",") != "a,b,c" || topics[0].Patterns[0] != "AA" {
+		t.Fatalf("order/replace wrong: %s", raw)
+	}
+	if !bytes.Contains(raw, []byte("ch <- v")) {
+		t.Fatalf("pattern was HTML-escaped: %s", raw)
+	}
+	if bak, _ := os.ReadFile(UserConfigPath() + ".bak"); !bytes.Equal(bak, orig) {
+		t.Fatalf("backup: %s", bak)
+	}
+}
+
+func TestAddTopicsIsAllOrNothing(t *testing.T) {
+	tempHome(t)
+	orig := []byte(`{"topics":[{"id":"a","patterns":["A"]}]}`)
+	os.WriteFile(UserConfigPath(), orig, 0o644)
+	if _, _, err := AddTopics([]*Topic{{ID: "d", Patterns: []string{"D"}}, {ID: "e"}}); err == nil {
+		t.Fatal("expected error for topic without patterns")
+	}
+	if raw, _ := os.ReadFile(UserConfigPath()); !bytes.Equal(raw, orig) {
+		t.Fatalf("file changed after failed add: %s", raw)
+	}
+
+	os.WriteFile(UserConfigPath(), []byte(`{broken`), 0o644)
+	if _, _, err := AddTopics([]*Topic{{ID: "d", Patterns: []string{"D"}}}); err == nil || !strings.Contains(err.Error(), "not valid JSON") {
+		t.Fatalf("malformed goals.json: %v", err)
+	}
+	if _, _, err := RemoveTopics([]string{"a"}); err == nil {
+		t.Fatal("remove must refuse a malformed goals.json too")
+	}
+	if raw, _ := os.ReadFile(UserConfigPath()); string(raw) != `{broken` {
+		t.Fatalf("malformed file was overwritten: %s", raw)
+	}
+}
+
+func TestAddTopicsNilCreatesEmptyConfig(t *testing.T) {
+	tempHome(t)
+	if _, _, err := AddTopics(nil); err != nil {
+		t.Fatal(err)
+	}
+	_, topics, raw := readGoals(t)
+	if len(topics) != 0 || !bytes.Contains(raw, []byte(`"topics": []`)) {
+		t.Fatalf("want empty topic list, got %s", raw)
+	}
+	if _, err := os.Stat(UserConfigPath() + ".bak"); err == nil {
+		t.Fatal("no backup expected when there was no file")
+	}
+}
+
+func TestRemoveTopicsKeepsTheRest(t *testing.T) {
+	tempHome(t)
+	os.WriteFile(UserConfigPath(), []byte(`{"start_prompt":"off","topics":[{"id":"a","patterns":["A"]},{"id":"b","patterns":["B"]}]}`), 0o644)
+	removed, missing, err := RemoveTopics([]string{"B", "zz"})
+	if err != nil || strings.Join(removed, ",") != "b" || strings.Join(missing, ",") != "zz" {
+		t.Fatalf("removed %v missing %v err %v", removed, missing, err)
+	}
+	keys, topics, raw := readGoals(t)
+	if len(topics) != 1 || topics[0].ID != "a" || string(keys["start_prompt"]) != `"off"` {
+		t.Fatalf("after remove: %s", raw)
+	}
+	if _, _, err := RemoveTopics([]string{"a"}); err != nil {
+		t.Fatal(err)
+	}
+	if _, topics, raw = readGoals(t); len(topics) != 0 || !bytes.Contains(raw, []byte(`"topics": []`)) {
+		t.Fatalf("removing the last topic must leave an empty list: %s", raw)
+	}
+}
+
+func TestRemoveTopicsWithoutConfigWritesNothing(t *testing.T) {
+	tempHome(t)
+	if _, missing, err := RemoveTopics([]string{"a"}); err != nil || len(missing) != 1 {
+		t.Fatalf("missing %v err %v", missing, err)
+	}
+	if _, err := os.Stat(UserConfigPath()); err == nil {
+		t.Fatal("remove must not create goals.json")
+	}
+}
+
+func TestListTopicsMarksSelectedAndCustom(t *testing.T) {
+	tempHome(t)
+	catalog := []*Topic{{ID: "sql", Name: "SQL", Mode: "quiz-after", Patterns: []string{"x"}}, {ID: "testing", Patterns: []string{"y"}}}
+	os.WriteFile(UserConfigPath(), []byte(`{"topics":[{"id":"sql","patterns":["x"]},{"id":"react-hooks","name":"React hooks","patterns":["useState"]}]}`), 0o644)
+	list, err := ListTopics(catalog)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := map[string]TopicListing{}
+	for _, l := range list {
+		got[l.ID] = l
+	}
+	if !got["sql"].Selected || got["sql"].Source != "catalog" || got["sql"].Mode != "quiz-after" {
+		t.Fatalf("sql: %+v", got["sql"])
+	}
+	if got["testing"].Selected || got["testing"].Mode != "ask-first" || got["testing"].Name != "testing" {
+		t.Fatalf("testing: %+v", got["testing"])
+	}
+	if !got["react-hooks"].Selected || got["react-hooks"].Source != "custom" {
+		t.Fatalf("custom: %+v", got["react-hooks"])
 	}
 }
