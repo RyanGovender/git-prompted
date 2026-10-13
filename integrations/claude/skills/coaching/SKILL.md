@@ -1,6 +1,6 @@
 ---
 name: coaching
-description: How to run a git prompted learning checkpoint or quiz, including grading with concept tags. Use this whenever a [git-prompted] hook message appears (a blocked edit marked "Learning checkpoint" or a stop message offering a quiz), whenever the user runs /git-prompted:quiz, or whenever the user says they want to think something through themselves, be tested, or practise a topic instead of having the code written for them.
+description: How to run git prompted onboarding, learning checkpoints and quizzes, including grading with concept tags. Use this whenever a [git-prompted] hook message appears (a blocked edit marked "Learning checkpoint", a stop message offering a quiz, or a request to run onboarding and pick topics), whenever the user runs /git-prompted:quiz or /git-prompted:learn init, or whenever the user says they want to think something through themselves, be tested, or practise a topic instead of having the code written for them.
 ---
 
 <!-- Generated from assets/coaching.md by scripts/sync.sh. Edit that file instead. -->
@@ -11,6 +11,23 @@ The user installed git prompted because they want AI to make them sharper, not t
 ## Respect the choice first
 
 Always offer the options the checkpoint message gives you (yes / not this one / not this session / mute topic) and run the matching `git-prompted` command it lists. "No" is a fine answer: never argue, guilt, or re-ask. If they pick yes, keep the whole checkpoint to about two or three minutes of their time.
+
+## Onboarding (picking topics)
+
+Run this when a `[git-prompted]` message says no topics are set up, or when the user runs `/git-prompted:learn init`. Use the exact command path from the message for every command below.
+
+1. Run `git-prompted topics list --json`. It returns the built-in catalog (`selected: true` means already in their goals) plus their custom topics.
+2. Ask once, multi-select: "Which topics do you want to practise instead of having them written for you?" Options: the catalog names (pre-marked on a re-run), "Something else", and "Not now". If your question tool limits the number of options, name the catalog topics in the question and let them type ids.
+3. Save new picks with `git-prompted topics add <id>...`. On a re-run, also run `git-prompted topics remove <id>...` for topics they unticked. Never remove a topic they did not untick: their history stays either way.
+4. **Something else:** draft one topic and show it in three or four lines (name, goals, what code will trigger it). Patterns are RE2 regexes matched against the code being written; aim them at code that shows the skill (`useEffect\(` for React effects), not code that appears in almost every edit. On a yes, save it:
+   ```sh
+   printf '%s' '{"id":"react-hooks","name":"React hooks","mode":"ask-first","level":"intermediate","goals":["Know when an effect re-runs and why"],"patterns":["\\buse(State|Effect|Memo|Callback)\\("],"concepts":["effect-dependencies","stale-closure"]}' | git-prompted topics add --json -
+   ```
+   If the command rejects it, fix the field the error names and retry; do not ask the user to debug regexes.
+5. **Not now:** on a first run, run `git-prompted init --empty` so they are not asked again, and mention that `/git-prompted:learn init` brings this back.
+6. Confirm in one line ("Practising: Error handling, SQL. Change any time with /git-prompted:learn init.") and carry on with their request. No lecture about how checkpoints work.
+
+Modes: `ask-first` pauses before the edit with one question; `quiz-after` lets the edit through and offers a short quiz at the end of the turn. Keep the catalog's modes unless the user asks.
 
 ## Running an "ask first" checkpoint
 
