@@ -46,6 +46,42 @@ func cmd(t *testing.T, args ...string) {
 	}
 }
 
+func TestTopicsListRepo(t *testing.T) {
+	setupEmpty(t)
+	repo := t.TempDir()
+	os.WriteFile(filepath.Join(repo, "w.go"), []byte("go func() { ch <- 1 }()"), 0o644)
+	os.WriteFile(filepath.Join(repo, "notes.md"), []byte("db.Query(\"SELECT 1\")"), 0o644)
+
+	var out bytes.Buffer
+	if err := runTopics(&out, nil, []string{"list"}, true, repo); err != nil {
+		t.Fatal(err)
+	}
+	var list []core.TopicListing
+	if err := json.Unmarshal(out.Bytes(), &list); err != nil {
+		t.Fatalf("list --json --repo: %v\n%s", err, out.String())
+	}
+	if list[0].ID != "concurrency" || list[0].SeenInRepo == nil || *list[0].SeenInRepo != 1 {
+		t.Fatalf("concurrency should come first with 1 file: %+v", list[0])
+	}
+	for _, l := range list[1:] {
+		if l.SeenInRepo == nil || *l.SeenInRepo != 0 {
+			t.Fatalf("%s: want seen_in_repo 0 (prose is not code), got %v", l.ID, l.SeenInRepo)
+		}
+	}
+
+	out.Reset()
+	if err := runTopics(&out, nil, []string{"list"}, false, repo); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out.String(), "Concurrency  (1 file here)") {
+		t.Fatalf("text list should show the repo count:\n%s", out.String())
+	}
+	cmd(t, "topics", "list", "--repo", repo)
+	if err := runCommand([]string{"topics", "list", "--repo", filepath.Join(repo, "missing")}); err == nil {
+		t.Fatal("missing --repo directory: want an error")
+	}
+}
+
 func TestFullFlowPerAgent(t *testing.T) {
 	edits := map[string]string{
 		"claude": `{"session_id":"%s","cwd":"/p","tool_name":"Write","tool_input":{"file_path":"/p/w.go","content":"go func() { ch <- 1 }()"}}`,
@@ -329,21 +365,21 @@ func TestInitVariants(t *testing.T) {
 func TestTopicsCommand(t *testing.T) {
 	home := setupEmpty(t)
 	var out bytes.Buffer
-	if err := runTopics(&out, nil, []string{"add", "sql", "error-handling"}, false); err != nil {
+	if err := runTopics(&out, nil, []string{"add", "sql", "error-handling"}, false, ""); err != nil {
 		t.Fatal(err)
 	}
 	custom := `{"id":"react-hooks","name":"React hooks","patterns":["\\buse(State|Effect)\\("]}`
-	if err := runTopics(&out, strings.NewReader(custom), []string{"add", "-"}, true); err != nil {
+	if err := runTopics(&out, strings.NewReader(custom), []string{"add", "-"}, true, ""); err != nil {
 		t.Fatal(err)
 	}
-	if err := runTopics(&out, strings.NewReader(`{oops`), []string{"add", "-"}, true); err == nil || !strings.Contains(err.Error(), "invalid topic JSON") {
+	if err := runTopics(&out, strings.NewReader(`{oops`), []string{"add", "-"}, true, ""); err == nil || !strings.Contains(err.Error(), "invalid topic JSON") {
 		t.Fatalf("bad JSON: %v", err)
 	}
-	if err := runTopics(&out, nil, []string{"add", "nope"}, false); err == nil || !strings.Contains(err.Error(), "choose from") {
+	if err := runTopics(&out, nil, []string{"add", "nope"}, false, ""); err == nil || !strings.Contains(err.Error(), "choose from") {
 		t.Fatalf("unknown id: %v", err)
 	}
 	out.Reset()
-	if err := runTopics(&out, nil, []string{"list"}, true); err != nil {
+	if err := runTopics(&out, nil, []string{"list"}, true, ""); err != nil {
 		t.Fatal(err)
 	}
 	var list []core.TopicListing

@@ -82,6 +82,22 @@ func (t *Topic) Matches(files []string, code string) bool {
 	return false
 }
 
+// compile prepares Patterns and Paths for Matches. Bad patterns are reported via warn and skipped.
+func (t *Topic) compile(warn func(string)) {
+	t.patterns, t.paths = nil, nil
+	for _, p := range t.Patterns {
+		re, err := regexp.Compile("(?m)" + p)
+		if err != nil {
+			warn(fmt.Sprintf("topic %s: bad pattern %q: %v", t.ID, p, err))
+			continue
+		}
+		t.patterns = append(t.patterns, re)
+	}
+	for _, g := range t.Paths {
+		t.paths = append(t.paths, GlobToRegexp(g))
+	}
+}
+
 // Config is the merged user + project configuration.
 type Config struct {
 	StartPrompt     string   `json:"start_prompt,omitempty"` // ask | on | off
@@ -174,17 +190,7 @@ func LoadConfig(projectDir string, warn func(string)) *Config {
 	}
 	for _, id := range order {
 		t := byID[id]
-		for _, p := range t.Patterns {
-			re, err := regexp.Compile("(?m)" + p)
-			if err != nil {
-				warn(fmt.Sprintf("topic %s: bad pattern %q: %v", t.ID, p, err))
-				continue
-			}
-			t.patterns = append(t.patterns, re)
-		}
-		for _, g := range t.Paths {
-			t.paths = append(t.paths, GlobToRegexp(g))
-		}
+		t.compile(warn)
 		cfg.Topics = append(cfg.Topics, t)
 	}
 	if len(cfg.Topics) == 0 {

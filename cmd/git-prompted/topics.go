@@ -14,11 +14,12 @@ import (
 // stdin is where `topics add --json -` reads from; tests replace it.
 var stdin io.Reader = os.Stdin
 
-const topicsUsage = "usage: git-prompted topics list [--json] | add <id>... | add --json - | remove <id>..."
+const topicsUsage = "usage: git-prompted topics list [--json] [--repo DIR] | add <id>... | add --json - | remove <id>..."
 
 // runTopics lists the catalog and adds or removes topics in goals.json.
-// Agents run it during onboarding; every write is validated by core.
-func runTopics(w io.Writer, in io.Reader, args []string, asJSON bool) error {
+// Agents run it during onboarding; every write is validated by core. A non-empty
+// repo makes list count matching files in that directory.
+func runTopics(w io.Writer, in io.Reader, args []string, asJSON bool, repo string) error {
 	catalog, err := core.ParseCatalog(assets.Topics)
 	if err != nil {
 		return fmt.Errorf("built-in catalog: %v", err)
@@ -30,6 +31,9 @@ func runTopics(w io.Writer, in io.Reader, args []string, asJSON bool) error {
 	switch sub {
 	case "list":
 		list, err := core.ListTopics(catalog)
+		if repo != "" {
+			list, err = core.ListTopicsForRepo(catalog, repo)
+		}
 		if err != nil {
 			return err
 		}
@@ -43,7 +47,13 @@ func runTopics(w io.Writer, in io.Reader, args []string, asJSON bool) error {
 			if l.Selected {
 				mark = "*"
 			}
-			fmt.Fprintf(w, "%s %-16s %-11s %s\n", mark, l.ID, l.Mode, l.Name)
+			seen := ""
+			if n := l.SeenInRepo; n != nil && *n == 1 {
+				seen = "  (1 file here)"
+			} else if n != nil && *n > 1 {
+				seen = fmt.Sprintf("  (%d files here)", *n)
+			}
+			fmt.Fprintf(w, "%s %-16s %-11s %s%s\n", mark, l.ID, l.Mode, l.Name, seen)
 		}
 		fmt.Fprintln(w, "\n* = in your goals.json. Add: git-prompted topics add <id>...  Remove: git-prompted topics remove <id>...")
 		return nil
