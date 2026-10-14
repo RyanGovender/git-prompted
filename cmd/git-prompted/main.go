@@ -28,7 +28,9 @@ Hooks (called by the agent CLI, JSON on stdin):
 
 Commands:
   git-prompted init [--defaults|--empty]    how to pick topics (--defaults: concurrency + architecture; --empty: none)
-  git-prompted topics list [--json]         built-in topic catalog; * = in your goals.json
+  git-prompted topics list [--json] [--repo DIR]
+                                            built-in topic catalog; * = in your goals.json;
+                                            --repo: how many files in DIR each topic matches
   git-prompted topics add <id>...           add catalog topics (add --json - reads custom topic JSON from stdin)
   git-prompted topics remove <id>...
   git-prompted status                       topics, cooldowns, mutes
@@ -204,6 +206,7 @@ func runCommand(args []string) error {
 	with := fs.String("with", "", "status line command to combine with")
 	defaults := fs.Bool("defaults", false, "init: start with the default topics")
 	empty := fs.Bool("empty", false, "init: start with no topics")
+	repo := fs.String("repo", "", "topics list: also count how many files in this directory each topic matches")
 	if err := fs.Parse(flagArgs); err != nil {
 		return err
 	}
@@ -257,7 +260,7 @@ func runCommand(args []string) error {
 		}
 		return nil
 	case "topics":
-		return runTopics(os.Stdout, stdin, pos, *asJSON)
+		return runTopics(os.Stdout, stdin, pos, *asJSON, *repo)
 	case "status":
 		return status(os.Stdout, cwd, *session)
 	case "progress":

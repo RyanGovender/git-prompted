@@ -16,8 +16,8 @@ Always offer the options the checkpoint message gives you (yes / not this one / 
 
 Run this when a `[git-prompted]` message says no topics are set up, or when the user runs `/git-prompted:learn init`. Use the exact command path from the message for every command below.
 
-1. Run `git-prompted topics list --json`. It returns the built-in catalog (`selected: true` means already in their goals) plus their custom topics.
-2. Ask once, multi-select: "Which topics do you want to practise instead of having them written for you?" Options: the catalog names (pre-marked on a re-run), "Something else", and "Not now". If your question tool limits the number of options, name the catalog topics in the question and let them type ids.
+1. Run `git-prompted topics list --json --repo .` from the project directory. It returns the built-in catalog (`selected: true` means already in their goals) plus their custom topics, with topics that show up in this repository first; `seen_in_repo` is how many files each one matches. Outside a repository, leave out `--repo .`.
+2. Ask once, multi-select: "Which topics do you want to practise instead of having them written for you?" Options: the catalog names in that order (pre-marked on a re-run), "Something else", and "Not now". Add "(in N files here)" to topics with `seen_in_repo` above zero, but do not pre-select them or recommend them: code in the repo is a hint about what will come up, not what the user wants to learn, and topics apply to every project. If your question tool limits the number of options, name the catalog topics in the question and let them type ids.
 3. Save new picks with `git-prompted topics add <id>...`. On a re-run, also run `git-prompted topics remove <id>...` for topics they unticked. Never remove a topic they did not untick: their history stays either way.
 4. **Something else:** draft one topic and show it in three or four lines (name, goals, what code will trigger it). Patterns are RE2 regexes matched against the code being written; aim them at code that shows the skill (`useEffect\(` for React effects), not code that appears in almost every edit. On a yes, save it:
    ```sh

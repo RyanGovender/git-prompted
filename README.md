@@ -53,6 +53,7 @@ git prompted install codex
 Then pick your topics. The first time you start a session, your agent asks which topics you want to practise (from a built-in catalog, or describe your own and it drafts the topic for you) and saves them. Change them any time with `/git-prompted:learn init` in Claude Code, or ask your agent to "run git prompted onboarding". From a terminal:
 ```sh
 git prompted topics list                     # built-in catalog; * = already in your goals
+git prompted topics list --repo .            # ...with how many files here each topic matches
 git prompted topics add sql error-handling
 git prompted topics remove architecture
 git prompted init --defaults                 # skip picking: concurrency + architecture

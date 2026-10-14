@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"sort"
 	"strings"
 )
 
@@ -82,6 +83,9 @@ type TopicListing struct {
 	Goals    []string `json:"goals,omitempty"`
 	Source   string   `json:"source"`   // catalog | custom
 	Selected bool     `json:"selected"` // already in goals.json
+	// SeenInRepo is how many files in the scanned repository the topic matches.
+	// Only set by ListTopicsForRepo.
+	SeenInRepo *int `json:"seen_in_repo,omitempty"`
 }
 
 // AddTopics validates every topic, then writes them into goals.json in one step:
@@ -129,24 +133,54 @@ func RemoveTopics(ids []string) (removed, missing []string, err error) {
 // ListTopics lists the catalog, marking entries already in goals.json, followed by
 // the user's custom topics.
 func ListTopics(catalog []*Topic) ([]TopicListing, error) {
-	mine, err := readUserTopics()
+	list, _, err := listTopics(catalog)
+	return list, err
+}
+
+// ListTopicsForRepo is ListTopics plus how many files in dir each topic matches
+// (see ScanRepo). Topics seen in the repository come first, most files first;
+// ties keep the catalog order. It is a hint for onboarding, not a selection.
+func ListTopicsForRepo(catalog []*Topic, dir string) ([]TopicListing, error) {
+	list, topics, err := listTopics(catalog)
 	if err != nil {
 		return nil, err
 	}
+	counts, err := ScanRepo(dir, topics)
+	if err != nil {
+		return nil, err
+	}
+	for i := range list {
+		n := counts[list[i].ID]
+		list[i].SeenInRepo = &n
+	}
+	sort.SliceStable(list, func(a, b int) bool { return *list[a].SeenInRepo > *list[b].SeenInRepo })
+	return list, nil
+}
+
+// listTopics returns the listing and, in the same order, the topic each row describes.
+func listTopics(catalog []*Topic) ([]TopicListing, []*Topic, error) {
+	mine, err := readUserTopics()
+	if err != nil {
+		return nil, nil, err
+	}
 	var out []TopicListing
+	var topics []*Topic
 	for _, t := range catalog {
 		if i := indexOf(mine, t.ID); i >= 0 {
 			out = append(out, listing(mine[i], "catalog", true)) // the user's version is the one that runs
+			topics = append(topics, mine[i])
 		} else {
 			out = append(out, listing(t, "catalog", false))
+			topics = append(topics, t)
 		}
 	}
 	for _, t := range mine {
 		if indexOf(catalog, t.ID) < 0 {
 			out = append(out, listing(t, "custom", true))
+			topics = append(topics, t)
 		}
 	}
-	return out, nil
+	return out, topics, nil
 }
 
 func listing(t *Topic, source string, selected bool) TopicListing {
